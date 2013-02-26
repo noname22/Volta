@@ -114,6 +114,21 @@ public:
 			LLVMSetFunctionCallConv(v, LLVMCallConv.X86Stdcall);
 		}
 
+		/// @todo remove once attributes are setup
+		if (fn.type.linkage == ir.Linkage.C) {
+			switch (fn.mangledName) {
+			case "_setjmp":
+				LLVMAddFunctionAttr(v, LLVMAttribute.ReturnsTwice);
+				LLVMAddFunctionAttr(v, LLVMAttribute.NoUnwind);
+				break;
+			case "longjmp":
+				LLVMAddFunctionAttr(v, LLVMAttribute.NoReturn);
+				LLVMAddFunctionAttr(v, LLVMAttribute.NoUnwind);
+				break;
+			default:
+			}
+		}
+
 		valueStore[k] = Store(v, type);
 		return v;
 	}
