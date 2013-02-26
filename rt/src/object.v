@@ -40,12 +40,9 @@ module object;
  */
 alias AllocDg = void* delegate(TypeInfo typeinfo, size_t count);
 
-
 local AllocDg allocDg;
 
-extern(C) AllocDg vrt_gc_get_alloc_dg();
 
-extern(C) void vrt_gc_init();
 
 struct ArrayStruct
 {
@@ -86,7 +83,20 @@ class Object
 	}
 }
 
+
+extern(C) AllocDg vrt_gc_get_alloc_dg();
+extern(C) void    vrt_gc_init();
+
+extern(C) void    vrt_eh_throw(Object obj);
+extern(C) void    vrt_eh_rethrow();
+extern(C) Object  vrt_eh_current();
+extern(C) void    vrt_eh_handled();
+extern(C) void    vrt_eh_begin_try(void*);
+extern(C) void    vrt_eh_end_try(void*);
+
 extern(C) {
+	/*@MangledName("_setjmp") @LLVMReturnTwice */ int __llvm_setjmp(void*);
+	/*@MangledName("longjmp")*/ void __llvm_longjump(void*, int);
 	/*@MangledName("memcmp")*/ int __llvm_memcmp(void*, void*, size_t);
 	/*@MangledName("llvm.trap")*/ void __llvm_trap();
 	/*@MangledName("llvm.memcpy.p0i8.p0i8.i32")*/ void __llvm_memcpy_p0i8_p0i8_i32(void*, void*, uint, int, bool);
