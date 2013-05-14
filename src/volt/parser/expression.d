@@ -582,6 +582,11 @@ ir.TraitsExp parseTraitsExp(TokenStream ts)
 		match(ts, TokenType.Comma);
 		texp.qname = parseQualifiedName(ts);
 		break;
+	case "allMembers":
+		texp.op = ir.TraitsExp.Op.AllMembers;
+		match(ts, TokenType.Comma);
+		texp.target = parseQualifiedName(ts);
+		break;
 	default:
 		throw makeExpected(nameTok.location, "__traits identifier");
 	}

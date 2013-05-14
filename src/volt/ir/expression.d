@@ -475,6 +475,7 @@ public:
 	enum Op
 	{
 		GetAttribute,
+		AllMembers,
 	}
 
 public:
