@@ -16,6 +16,7 @@ class TokenStream
 private:
 	Token[] mTokens;
 	size_t mIndex;
+	string[] mComment;
 
 public:
 	/**
@@ -176,5 +177,29 @@ public:
 	{
 		assert(index < mTokens.length);
 		mIndex = index;
+	}
+
+	void pushCommentLevel()
+	{
+		mComment ~= [""];
+	}
+
+	void popCommentLevel()
+	{
+		assert(mComment.length > 0);
+		mComment = mComment[0 .. $-1];
+	}
+
+	/// Add a comment to the current comment level.
+	void addComment(string comment)
+	{
+		mComment[$-1] ~= comment;
+	}
+
+	/// Retrieve the current comment.
+	string comment()
+	{
+		assert(mComment.length >= 1);
+		return mComment[$-1];
 	}
 }

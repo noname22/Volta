@@ -20,12 +20,16 @@ import volt.parser.expression;
 
 ir.Module parseModule(TokenStream ts)
 {
+	ts.pushCommentLevel();
+	eatComments(ts);
 	auto t = match(ts, TokenType.Module);
 	auto qn = parseQualifiedName(ts);
 	match(ts, TokenType.Semicolon);
 
 	auto mod = new ir.Module();
 	mod.name = qn;
+	mod.docComment = ts.comment();
+	ts.popCommentLevel();
 
 	mod.children = parseTopLevelBlock(ts, TokenType.End, true);
 
@@ -57,6 +61,8 @@ out(result)
 }
 body
 {
+	ts.pushCommentLevel();
+	eatComments(ts);
 	auto tlb = new ir.TopLevelBlock();
 	tlb.location = ts.peek.location;
 
@@ -160,6 +166,8 @@ body
 			break;
 	}
 
+	ts.popCommentLevel();
+
 	return tlb;
 }
 
@@ -234,6 +242,7 @@ ir.Unittest parseUnittest(TokenStream ts)
 	match(ts, TokenType.Unittest);
 	u._body = parseBlock(ts);
 
+	u.docComment = ts.comment();
 	return u;
 }
 
@@ -242,6 +251,7 @@ ir.Function parseConstructor(TokenStream ts)
 	auto c = new ir.Function();
 	c.kind = ir.Function.Kind.Constructor;
 	c.name = "__ctor";
+	c.docComment = ts.comment();
 
 	// XXX: Change to local/global.
 	if (matchIf(ts, TokenType.Static)) {
@@ -325,6 +335,7 @@ ir.Function parseDestructor(TokenStream ts)
 	auto d = new ir.Function();
 	d.kind = ir.Function.Kind.Destructor;
 	d.name = "__dtor";
+	d.docComment = ts.comment();
 
 	// XXX: Change to local/global or local/shared.
 	if (matchIf(ts, TokenType.Static)) {
@@ -360,6 +371,7 @@ ir.Class parseClass(TokenStream ts)
 {
 	auto c = new ir.Class();
 	c.location = ts.peek.location;
+	c.docComment = ts.comment();
 
 	match(ts, TokenType.Class);
 	auto nameTok = match(ts, TokenType.Identifier);
@@ -383,6 +395,7 @@ ir._Interface parseInterface(TokenStream ts)
 {
 	auto i = new ir._Interface();
 	i.location = ts.peek.location;
+	i.docComment = ts.comment();
 
 	match(ts, TokenType.Interface);
 	auto nameTok = match(ts, TokenType.Identifier);
@@ -407,6 +420,7 @@ ir.Union parseUnion(TokenStream ts)
 {
 	auto u = new ir.Union();
 	u.location = ts.peek.location;
+	u.docComment = ts.comment();
 
 	match(ts, TokenType.Union);
 	if (ts.peek.type == TokenType.Identifier) {
@@ -432,6 +446,7 @@ ir.Struct parseStruct(TokenStream ts)
 {
 	auto s = new ir.Struct();
 	s.location = ts.peek.location;
+	s.docComment = ts.comment();
 
 	match(ts, TokenType.Struct);
 	auto nameTok = match(ts, TokenType.Identifier);
@@ -541,6 +556,7 @@ ir.MixinFunction parseMixinFunction(TokenStream ts)
 {
 	auto m = new ir.MixinFunction();
 	m.location = ts.peek.location;
+	m.docComment = ts.comment();
 
 	match(ts, TokenType.Mixin);
 	match(ts, TokenType.Function);
@@ -561,6 +577,7 @@ ir.MixinTemplate parseMixinTemplate(TokenStream ts)
 {
 	auto m = new ir.MixinTemplate();
 	m.location = ts.peek.location;
+	m.docComment = ts.comment();
 
 	match(ts, TokenType.Mixin);
 	match(ts, TokenType.Template);
@@ -583,6 +600,7 @@ ir.Attribute parseAttribute(TokenStream ts, bool inModule = false)
 {
 	auto attr = new ir.Attribute();
 	attr.location = ts.peek.location;
+	attr.docComment = ts.comment();
 
 	// Not something we normally do,
 	// but in this case makes the code easier.
@@ -704,6 +722,7 @@ ir.StaticAssert parseStaticAssert(TokenStream ts)
 {
 	auto sa = new ir.StaticAssert();
 	sa.location = ts.peek.location;
+	sa.docComment = ts.comment();
 
 	match(ts, TokenType.Static);
 	match(ts, TokenType.Assert);
@@ -765,6 +784,7 @@ ir.ConditionTopLevel parseConditionTopLevel(TokenStream ts, bool inModule = fals
 {
 	auto ctl = new ir.ConditionTopLevel();
 	ctl.location = ts.peek.location;
+	ctl.docComment = ts.comment();
 
 	ctl.condition = parseCondition(ts);
 	if (matchIf(ts, TokenType.Colon)) {
@@ -798,6 +818,7 @@ ir.UserAttribute parseUserAttribute(TokenStream ts)
 {
 	auto ui = new ir.UserAttribute();
 	ui.location = ts.peek.location;
+	ui.docComment = ts.comment();
 
 	match(ts, TokenType.At);
 	match(ts, TokenType.Interface);

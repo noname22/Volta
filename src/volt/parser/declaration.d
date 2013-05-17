@@ -78,6 +78,7 @@ ir.Alias parseAlias(TokenStream ts)
 		match(ts, TokenType.Semicolon);
 	}
 
+	a.docComment = ts.comment();
 	return a;
 }
 
@@ -88,6 +89,7 @@ ir.Node[] reallyParseVariable(TokenStream ts, ir.Type base)
 	while (true) {
 		auto d = new ir.Variable();
 		d.location = ts.peek.location;
+		d.docComment = ts.comment();
 		d.type = base;
 		auto nameTok = match(ts, TokenType.Identifier);
 		d.name = nameTok.value;
@@ -158,7 +160,7 @@ ir.Type parseType(TokenStream ts)
 	}
 
 	base.location = ts.peek.location - origin;
-
+	base.docComment = ts.comment();
 	return base;
 }
 
@@ -181,6 +183,7 @@ ir.TypeReference parseTypeReference(TokenStream ts)
 	typeReference.id = parseQualifiedName(ts, true);
 
 	assert(typeReference.id.identifiers.length > 0);
+	typeReference.docComment = ts.comment();
 	return typeReference;
 }
 
@@ -202,6 +205,7 @@ ir.StorageType parseStorageType(TokenStream ts)
 		storageType.base = parseType(ts);
 	}
 
+	storageType.docComment = ts.comment();
 	return storageType;
 }
 
@@ -214,6 +218,7 @@ ir.FunctionType parseFunctionType(TokenStream ts, ir.Type base)
 	match(ts, TokenType.Function);
 	fn.params = parseParameterListFPtr(ts, fn);
 
+	fn.docComment = ts.comment();
 	return fn;
 }
 
@@ -226,6 +231,7 @@ ir.DelegateType parseDelegateType(TokenStream ts, ir.Type base)
 	match(ts, TokenType.Delegate);
 	fn.params = parseParameterListFPtr(ts, fn);
 
+	fn.docComment = ts.comment();
 	return fn;
 }
 
@@ -392,6 +398,9 @@ ir.Function parseFunction(TokenStream ts, ir.Type base)
 {
 	auto fn = new ir.Function();
 	fn.type = new ir.FunctionType();
+	fn.docComment = ts.comment();
+	ts.pushCommentLevel();
+	scope (exit) ts.popCommentLevel();
 
 	// <int> add(int a, int b) { }
 	fn.type.ret = base;
@@ -490,5 +499,6 @@ ir.EnumDeclaration parseEnumDeclaration(TokenStream ts)
 		edecl.assign = parseExp(ts);
 	}
 
+	edecl.docComment = ts.comment();
 	return edecl;
 }

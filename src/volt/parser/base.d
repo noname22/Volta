@@ -43,6 +43,14 @@ bool matchIf(TokenStream ts, TokenType type)
 	}
 }
 
+void eatComments(TokenStream ts)
+{
+	while (ts.peek.type == TokenType.DocComment) {
+		auto commentTok = match(ts, TokenType.DocComment);
+		ts.addComment(commentTok.value);
+	}
+}
+
 /**
  *
  */
