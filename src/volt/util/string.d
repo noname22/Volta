@@ -136,3 +136,54 @@ void[] unescape(T)(Location location, const T[] s)
 
 	return output;
 }
+
+/**
+ * Take a doc comment and remove comment cruft from it.
+ */
+string cleanComment(string comment)
+{
+	assert(comment.length > 2);
+	char commentChar;
+	if (comment[0..2] == "**") {
+		commentChar = '*';
+	} else if (comment[0..2] == "++") {
+		commentChar = '+';
+	} else if (comment[0..2] == "//") {
+		commentChar = '/';
+	} else {
+		assert(false, comment);
+	}
+
+	char[] outbuf;
+	bool ignoreWhitespace = true;
+	foreach (i, c; comment) {
+		if (i == comment.length - 1 && commentChar != '/' && c == '/') {
+			continue;
+		}
+		if (i == 2 && c == '<' && commentChar == '/') {
+			continue;
+		}
+		switch (c) {
+		case '*', '+', '/':
+			if (c == commentChar && ignoreWhitespace) {
+				break;
+			}
+			goto default;
+		case ' ', '\t':
+			if (!ignoreWhitespace) {
+				goto default;
+			}
+			break;
+		case '\n':
+			ignoreWhitespace = true;
+			outbuf ~= '\n';
+			break;
+		default:
+			ignoreWhitespace = false;
+			outbuf ~= c;
+			break;
+		}
+	}
+
+	return outbuf.idup;
+}
