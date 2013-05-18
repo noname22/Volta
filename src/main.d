@@ -187,6 +187,9 @@ bool handleArgs(string[] args, ref string[] files, Settings settings)
 		case "--stdlib-I":
 			argHandler = &stdIncludePath;
 			continue;
+		case "-D":
+			settings.writeDocs = true;
+			continue;
 		default:
 		}
 
@@ -254,6 +257,7 @@ bool printUsage()
 	writefln("\t-d              Compile in debug mode.");
 	writefln("\t-c              Compile only, do not link.");
 	writefln("\t-E              Only perform conditional removal (implies -S).");
+	writefln("\t-D              Write out documentation.");
 	writeln();
 	writefln("\t--arch          Select processer architecture: 'x86', 'x86_64'");
 	writefln("\t--platform      Select platform: 'mingw', 'linux', 'osx'");

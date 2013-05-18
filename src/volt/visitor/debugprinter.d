@@ -355,7 +355,7 @@ protected:
 	{
 		if (mIndent != 0)
 			ln();
-		twf(["(", ir.nodeToString(node), " ", getNodeAddressString(node)]);
+		twf(["(", node.docComment, ir.nodeToString(node), " ", getNodeAddressString(node)]);
 		mLastIndent = mIndent++;
 	}
 
@@ -363,7 +363,7 @@ protected:
 	{
 		if (mIndent != 0)
 			ln();
-		twf(["(", ir.nodeToString(node), " ", extra, " ", getNodeAddressString(node)]);
+		twf(["(", node.docComment, ir.nodeToString(node), " ", extra, " ", getNodeAddressString(node)]);
 		mLastIndent = mIndent++;
 	}
 
@@ -432,7 +432,7 @@ protected:
 	void visitNode(ir.Node node)
 	{
 		ln();
-		twf(["(", ir.nodeToString(node), " ", getNodeAddressString(node), ")"]);
+		twf(["(", node.docComment, ir.nodeToString(node), " ", getNodeAddressString(node), ")"]);
 		mLastIndent = mIndent;
 	}
 

@@ -14,6 +14,7 @@ import volt.util.worktracker;
 
 import volt.visitor.debugprinter;
 import volt.visitor.prettyprinter;
+import volt.visitor.docprinter;
 
 import volt.semantic.util;
 import volt.semantic.classify;
@@ -65,6 +66,9 @@ public:
 		mTracker = new WorkTracker();
 
 		postParse ~= new ConditionalRemoval(this);
+		if (settings.writeDocs) {
+			postParse ~= new DocPrinter(this);
+		}
 		if (settings.removeConditionalsOnly) {
 			return;
 		}

@@ -350,6 +350,7 @@ public:
 	bool internalDebug; ///< The --internal-dbg argument.
 	bool noStdLib; ///< The --no-stdlib argument.
 	bool removeConditionalsOnly; ///< The -E argument.
+	bool writeDocs; ///< The -D argument.
 
 	Platform platform;
 	Arch arch;
