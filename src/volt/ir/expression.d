@@ -501,3 +501,16 @@ public:
 public:
 	this() { super(NodeType.TypeExp); }
 }
+
+/**
+ *
+ */
+class TemplateInstanceExp : Exp
+{
+public:
+	string name;
+	Type[] types;
+
+public:
+	this() { super(NodeType.TemplateInstanceExp); }
+}
