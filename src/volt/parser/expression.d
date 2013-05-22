@@ -882,7 +882,8 @@ intir.PrimaryExp parsePrimaryExp(TokenStream ts)
 			goto case TokenType.Delegate;
 		}
 		auto token = ts.get();
-		if (matchIf(ts, TokenType.Bang)) {
+		if (ts.peek.type == TokenType.Bang && ts.lookahead(1).type != TokenType.Is) {
+			ts.get();
 			exp.op = intir.PrimaryExp.Type.TemplateInstance;
 			exp._template = new ir.TemplateInstanceExp();
 			exp._template.location = origin;
