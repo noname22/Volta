@@ -409,6 +409,9 @@ ir.Exp primaryToExp(intir.PrimaryExp primary)
 		pfix.identifier.value = primary._string;
 		exp = pfix;
 		break;
+	case intir.PrimaryExp.Type.TemplateInstance:
+		exp = primary._template;
+		break;
 	default:
 		throw panic(primary.location, "unhandled primary expression.");
 	}
