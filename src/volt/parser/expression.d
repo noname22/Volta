@@ -879,6 +879,22 @@ intir.PrimaryExp parsePrimaryExp(TokenStream ts)
 			goto case TokenType.Delegate;
 		}
 		auto token = ts.get();
+		if (matchIf(ts, TokenType.Bang)) {
+			exp.op = intir.PrimaryExp.Type.TemplateInstance;
+			exp._template = new ir.TemplateInstanceExp();
+			exp._template.location = origin;
+			exp._template.name = token.value;
+			if (matchIf(ts, TokenType.OpenParen)) {
+				while (ts.peek.type != ir.TokenType.CloseParen) {
+					exp._template.types ~= parseType(ts);
+					matchIf(ts, TokenType.Comma);
+				}
+				match(ts, TokenType.CloseParen);
+			} else {
+				exp._template.types ~= parseType(ts);
+			}
+			break;
+		}
 		exp._string = token.value;
 		exp.op = intir.PrimaryExp.Type.Identifier;
 		break;
