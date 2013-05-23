@@ -1949,7 +1949,7 @@ public:
 
 	override Status enter(ref ir.Exp, ir.TemplateInstanceExp texp)
 	{
-		twf(texp.name, "!(");
+		wf(texp.name, "!(");
 		foreach (i, type; texp.types) {
 			accept(type, this);
 			if (i < texp.types.length - 1) {
