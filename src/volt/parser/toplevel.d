@@ -183,10 +183,6 @@ body
 
 ir.Node parseImport(TokenStream ts, bool inModule)
 {
-	if (!inModule) {
-		throw makeNonTopLevelImport(ts.peek.location);
-	}
-
 	auto _import = new ir.Import();
 	_import.location = ts.peek.location;
 	match(ts, TokenType.Import);

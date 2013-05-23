@@ -64,6 +64,9 @@ public:
 
 	override Status enter(ir.Import i)
 	{
+		if (current !is thisModule.myScope) {
+			throw makeNonTopLevelImport(i.location);
+		}
 		auto mod = lp.getModule(i.name);
 		if (mod is null) {
 			throw makeCannotImport(i, i);
