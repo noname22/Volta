@@ -127,6 +127,7 @@ ir.Node[] parseVariableOrExpression(TokenStream ts)
 				throw e;
 			}
 			ts.restore(pos);
+			matchIf(ts, TokenType.Static);  ///< TODO: have effect and local/global when move to volt.
 			return [parseFunction(ts, parseType(ts))];
 		} catch (CompilerError ee) {
 			if (ee.neverIgnore) {
