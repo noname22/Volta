@@ -883,7 +883,7 @@ void extypeTypeLookup(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Post
 		exp = buildConstantUint(prim.location, max ? 4294967295U : 0);
 		break;
 	case Int:
-		exp = buildConstantInt(prim.location, max ? 2147483647 : -2147483648);
+		exp = buildConstantInt(prim.location, max ? 2147483647 : -2147483648L);
 		break;
 	case Ulong:
 		exp = buildConstantUlong(prim.location, max ? 18446744073709551615UL : 0);
