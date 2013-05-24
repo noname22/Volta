@@ -78,7 +78,6 @@ ir.Exp binexpToExp(intir.BinExp bin)
 	// Ladies and gentlemen, Mr. Edsger Dijkstra's shunting-yard algorithm! (polite applause)
 	// Shouldn't be needed.
 
-	import std.stdio;
 	ExpOrOp[] tokens = gatherExps(bin);
 	ExpOrOp[] output;
 	ir.BinOp.Op[] stack;
