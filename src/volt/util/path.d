@@ -81,18 +81,19 @@ string temporaryFilename(string extension = "")
  */
 string randomString(size_t length)
 {
+	immutable string OPEN = "[]";
 	auto str = new char[length];
 	foreach (i; 0 .. length) {
 		char c;
 		switch (uniform(0, 3)) {
 			case 0:
-				c = uniform!("[]", char, char)('0', '9');
+				c = uniform!(OPEN, char, char)('0', '9');
 				break;
 			case 1:
-				c = uniform!("[]", char, char)('a', 'z');
+				c = uniform!(OPEN, char, char)('a', 'z');
 				break;
 			case 2:
-				c = uniform!("[]", char, char)('A', 'Z');
+				c = uniform!(OPEN, char, char)('A', 'Z');
 				break;
 			default:
 				assert(false);

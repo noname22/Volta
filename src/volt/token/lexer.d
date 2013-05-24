@@ -17,6 +17,8 @@ import volt.token.stream : Token, TokenType, TokenStream, identifierType;
 import volt.token.writer : TokenWriter;
 import volt.errors;
 
+immutable string NOT_UNDERSCORES = "a != '_'";
+
 /**
  * Tokenizes a string pretending to be at the given location.
  *
@@ -966,7 +968,8 @@ bool lexNumber(TokenWriter tw)
 
 	token.type = TokenType.IntegerLiteral;
 	token.value = tw.source.sliceFrom(mark);
-	token.value = toUTF8(array(filter!"a != '_'"(token.value)));
+
+	token.value = toUTF8(array(filter!NOT_UNDERSCORES(token.value)));
 	tw.addToken(token);
 
 	return true;
@@ -1058,7 +1061,7 @@ bool lexReal(TokenWriter tw)
 _lex_real_out:
 	token.type = TokenType.FloatLiteral;
 	token.value = tw.source.sliceFrom(mark);
-	token.value = toUTF8(array(filter!"a != '_'"(token.value)));
+	token.value = toUTF8(array(filter!NOT_UNDERSCORES(token.value)));
 	tw.addToken(token);
 	return true;
 }
