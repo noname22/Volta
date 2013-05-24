@@ -612,8 +612,9 @@ bool fitsInPrimitive(ir.PrimitiveType t, ir.Exp e)
 			}
 		}
 
-		bool inFPRange(T)()
+		bool inFloatRange()
 		{
+			float T;
 			if (primitive.type == Int) {
 				return constant._int >= T.min_normal && constant._int <= T.max;
 			} else if (primitive.type == Uint) {
@@ -631,8 +632,25 @@ bool fitsInPrimitive(ir.PrimitiveType t, ir.Exp e)
 			}
 		}
 
-		alias inFPRange!float inFloatRange;
-		alias inFPRange!double inDoubleRange;
+		bool inDoubleRange()
+		{
+			double T;
+			if (primitive.type == Int) {
+				return constant._int >= T.min_normal && constant._int <= T.max;
+			} else if (primitive.type == Uint) {
+				return constant._uint >= T.min_normal && constant._uint <= T.max;
+			} else if (primitive.type == Long) {
+				return constant._long >= T.min_normal && constant._long <= T.max;
+			} else if (primitive.type == Ulong) {
+				return constant._ulong >= T.min_normal && constant._ulong <= T.max;
+			} else if (primitive.type == Float) {
+				return constant._float >= T.min_normal && constant._float <= T.max;
+			} else if (primitive.type == Double) {
+				return constant._double >= T.min_normal && constant._double <= T.max;
+			} else {
+				assert(false);
+			}
+		}
 
 		switch (t.type) {
 		case Ubyte, Char: return inUnsignedRange(ubyte.max);
