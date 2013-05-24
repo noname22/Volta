@@ -10,7 +10,7 @@ import std.string : format;
 import volt.errors : panic;
 import volt.token.location : Location;
 
-alias size_t Mark;
+alias Mark = size_t;
 
 
 /**
@@ -150,7 +150,7 @@ public:
 	{
 		if (mIndex >= source.length) {
 			eof = true;
-			mChar = dchar.init;
+			mChar = cast(dchar) 4294967295U; // dchar.max
 			return mChar;
 		}
 
@@ -198,7 +198,7 @@ public:
 			dchar c = decode(source, tmpIndex);
 			if (tmpIndex >= source.length) {
 				lookaheadEOF = true;
-				return dchar.init;
+				return cast(dchar) 4294967295U; // dchar.max
 			}
 			if (i == n - 1) {
 				return c;
