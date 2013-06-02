@@ -124,6 +124,7 @@ public:
 			case Variable:
 			case MixinStatement:
 			case ThrowStatement:
+			case Function:
 				auto s = accept(n, this);
 				if (s == Stop)
 					return Stop;

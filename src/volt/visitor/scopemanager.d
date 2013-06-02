@@ -14,12 +14,14 @@ class ScopeManager : NullVisitor
 {
 public:
 	ir.Scope current;
+	int nestedDepth;
 
 public:
 	override Status enter(ir.Module m)
 	{
 		assert(current is null);
 		current = m.myScope;
+		current.nestedDepth = nestedDepth;
 		return Continue;
 	}
 
@@ -39,6 +41,7 @@ public:
 	override Status enter(ir.Struct s)
 	{
 		current = s.myScope;
+		current.nestedDepth = nestedDepth;
 		return Continue;
 	}
 
@@ -58,6 +61,7 @@ public:
 	override Status enter(ir.Union u)
 	{
 		current = u.myScope;
+		current.nestedDepth = nestedDepth;
 		return Continue;
 	}
 
@@ -77,6 +81,7 @@ public:
 	override Status enter(ir.Class c)
 	{
 		current = c.myScope;
+		current.nestedDepth = nestedDepth;
 		return Continue;
 	}
 
@@ -96,6 +101,7 @@ public:
 	override Status enter(ir._Interface i)
 	{
 		current = i.myScope;
+		current.nestedDepth = nestedDepth;
 		return Continue;
 	}
 
@@ -115,6 +121,7 @@ public:
 	override Status enter(ir.UserAttribute ui)
 	{
 		current = ui.myScope;
+		current.nestedDepth = nestedDepth;
 		return Continue;
 	}
 
@@ -132,6 +139,10 @@ public:
 
 	override Status enter(ir.Function fn)
 	{
+		if (current.node.nodeType == ir.NodeType.Function) {
+			// Nested function.
+			nestedDepth++;
+		}
 		current = fn.myScope;
 		return Continue;
 	}
@@ -145,13 +156,21 @@ public:
 			throw panic(fn.location, str);
 		}
 
+		if (current.node.nodeType == ir.NodeType.Function) {
+			// Nested function.
+			nestedDepth--;
+			assert(nestedDepth >= 0);
+		}
+
 		current = current.parent;
+
 		return Continue;
 	}
 
 	override Status enter(ir.BlockStatement bs)
 	{
 		current = bs.myScope;
+		current.nestedDepth = nestedDepth;
 		return Continue;
 	}
 
@@ -171,6 +190,7 @@ public:
 	override Status enter(ir.Enum e)
 	{
 		current = e.myScope;
+		current.nestedDepth = nestedDepth;
 		return Continue;
 	}
 

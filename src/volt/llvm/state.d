@@ -197,7 +197,7 @@ public:
 			throw panic(var.location, "unclassified variable");
 		case Field:
 			throw panic(var.location, "field variable refered directly");
-		case Function:
+		case Function, Nested:
 			if (currentFunc is null)
 				throw panic(var.location,
 					"non-local/global variable in non-function scope");

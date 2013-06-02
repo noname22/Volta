@@ -217,6 +217,8 @@ public:
 	Module[] importedModules;
 	Access[] importedAccess;
 
+	int nestedDepth;
+
 public:
 	/**
 	 * For toplevel modules.

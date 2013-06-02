@@ -479,6 +479,9 @@ void extypeIdentifierExp(LanguagePass lp, ir.Scope current, ref ir.Exp e, ir.Ide
 	case Value:
 		auto var = cast(ir.Variable) store.node;
 		assert(var !is null);
+		if (current.nestedDepth > store.parent.nestedDepth) {
+			var.storage = ir.Variable.Storage.Nested;
+		}
 		_ref.decl = var;
 		e = _ref;
 		return;
@@ -1390,6 +1393,7 @@ class ExTyper : ScopeManager, Pass
 public:
 	LanguagePass lp;
 	bool enterFirstVariable;
+	int nestedDepth;
 
 public:
 	override void transform(ir.Module m)
@@ -1597,11 +1601,11 @@ public:
 
 	override Status enter(ir.Function fn)
 	{
+		super.enter(fn);
 		lp.resolve(current, fn);
 		super.enter(fn);
 		return Continue;
 	}
-
 
 	/*
 	 *
