@@ -1601,7 +1601,6 @@ public:
 
 	override Status enter(ir.Function fn)
 	{
-		super.enter(fn);
 		lp.resolve(current, fn);
 		super.enter(fn);
 		return Continue;
