@@ -1,5 +1,5 @@
-// Copyright © 2013, Bernard Helyer.  All rights reserved.
-// Copyright © 2013, Jakob Bornecrantz.  All rights reserved.
+// Copyright Â© 2013, Bernard Helyer.  All rights reserved.
+// Copyright Â© 2013, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/volt/license.d (BOOST ver. 1.0).
 module volt.semantic.context;
 
@@ -16,6 +16,13 @@ public:
 	ir.Scope current;
 
 	bool isVarAssign;
+
+	this(LanguagePass lp, ir.Scope current, bool isVarAssign)
+	{
+		this.lp = lp;
+		this.current = current;
+		this.isVarAssign = isVarAssign;
+	}
 
 	@property ir.Function parentFunction()
 	{

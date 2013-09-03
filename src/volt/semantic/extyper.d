@@ -27,13 +27,7 @@ import volt.semantic.util;
 import volt.semantic.ctfe;
 import volt.semantic.overload;
 import volt.semantic.nested;
-
-struct AssignmentState
-{
-	LanguagePass lp;
-	ir.Scope current;
-	bool isVarAssign;
-}
+import volt.semantic.context;
 
 /**
  * This handles the auto that has been filled in, removing the auto storage.
@@ -50,9 +44,9 @@ void replaceStorageIfNeeded(ref ir.Type type)
  * This handles implicitly typing null.
  * Generic function used by assign and other functions.
  */
-bool handleIfNull(LanguagePass lp, ir.Scope current, ir.Type left, ref ir.Exp right)
+bool handleIfNull(Context context, ir.Type left, ref ir.Exp right)
 {
-	auto rightType = getExpType(lp, right, current);
+	auto rightType = getExpType(context.lp, right, context.current);
 	if (rightType.nodeType != ir.NodeType.NullType) {
 		return false;
 	}
@@ -65,7 +59,7 @@ bool handleIfNull(LanguagePass lp, ir.Scope current, ir.Type left, ref ir.Exp ri
  *
  * While generic currently only used by extypeAssign.
  */
-bool handleIfStructLiteral(ref AssignmentState state, ir.Type left, ref ir.Exp right)
+bool handleIfStructLiteral(Context context, ir.Type left, ref ir.Exp right)
 {
 	auto asLit = cast(ir.StructLiteral) right;
 	if (asLit is null)
@@ -75,17 +69,17 @@ bool handleIfStructLiteral(ref AssignmentState state, ir.Type left, ref ir.Exp r
 
 	auto asStruct = cast(ir.Struct) realType(left);
 	if (asStruct is null) {
-		throw makeBadImplicitCast(right, getExpType(state.lp, right, state.current), left);
+		throw makeBadImplicitCast(right, getExpType(context.lp, right, context.current), left);
 	}
 
 	ir.Type[] types = getStructFieldTypes(asStruct);
 
 	if (types.length < asLit.exps.length) {
-		throw makeBadImplicitCast(right, getExpType(state.lp, right, state.current), left);
+		throw makeBadImplicitCast(right, getExpType(context.lp, right, context.current), left);
 	}
 
 	foreach (i, ref sexp; asLit.exps) {
-		extypeAssign(state, sexp, types[i]);
+		extypeAssign(context, sexp, types[i]);
 	}
 
 	asLit.type = buildTypeReference(right.location, asStruct, asStruct.name);
@@ -108,15 +102,15 @@ void extypeCastToBool(LanguagePass lp, ir.Scope current, ref ir.Exp exp)
 }
 
 /**
- * This deals with one side of an assign statement being 
+ * This deals with one side of an assign contextment being 
  * a storage type and the other not.
  * It allows scope and const to decay if the left hand side
  * isn't mutably indirect. It also allows types to be converted
  * into scoped ones.
  */
-void extypeAssignHandleStorage(ref AssignmentState state, ref ir.Exp exp, ir.Type ltype)
+void extypeAssignHandleStorage(Context context, ref ir.Exp exp, ir.Type ltype)
 {
-	auto rtype = realType(getExpType(state.lp, exp, state.current));
+	auto rtype = realType(getExpType(context.lp, exp, context.current));
 	ltype = realType(ltype);
 	if (ltype.nodeType != ir.NodeType.StorageType &&
 	    rtype.nodeType == ir.NodeType.StorageType) {
@@ -152,9 +146,9 @@ void extypeAssignHandleStorage(ref AssignmentState state, ref ir.Exp exp, ir.Typ
  * This handles implicitly casting a const type to a mutable type,
  * if the underlying type has no mutable indirection.
  */
-void extypePassHandleStorage(ref AssignmentState state, ref ir.Exp exp, ir.Type ltype)
+void extypePassHandleStorage(Context context, ref ir.Exp exp, ir.Type ltype)
 {
-	auto rtype = realType(getExpType(state.lp, exp, state.current));
+	auto rtype = realType(getExpType(context.lp, exp, context.current));
 	ltype = realType(ltype);
 	if (ltype.nodeType != ir.NodeType.StorageType &&
 	    rtype.nodeType == ir.NodeType.StorageType) {
@@ -175,14 +169,14 @@ void extypePassHandleStorage(ref AssignmentState state, ref ir.Exp exp, ir.Type 
 /**
  * Forbids mutably indirect types being implicitly casted to scope.
  */
-void rejectBadScopeAssign(ref AssignmentState state, ref ir.Exp exp, ir.Type type)
+void rejectBadScopeAssign(Context context, ref ir.Exp exp, ir.Type type)
 {
 	auto storage = cast(ir.StorageType) realType(type);
 	if (storage is null) {
 		return;
 	}
 	if (mutableIndirection(storage.base)) {
-		if (!state.isVarAssign || (state.current.node.nodeType != ir.NodeType.Function && state.current.node.nodeType != ir.NodeType.BlockStatement)) {
+		if (!context.isVarAssign || (context.current.node.nodeType != ir.NodeType.Function && context.current.node.nodeType != ir.NodeType.BlockStatement)) {
 			throw makeBadImplicitCast(exp, type, storage);
 		}
 	}
@@ -191,9 +185,9 @@ void rejectBadScopeAssign(ref AssignmentState state, ref ir.Exp exp, ir.Type typ
 /**
  * Implicitly convert to scope if possible.
  */
-void extypeAssignStorageType(ref AssignmentState state, ref ir.Exp exp, ir.StorageType storage)
+void extypeAssignStorageType(Context context, ref ir.Exp exp, ir.StorageType storage)
 {
-	auto type = realType(getExpType(state.lp, exp, state.current));
+	auto type = realType(getExpType(context.lp, exp, context.current));
 	if (storage.base is null) {
 		if (type.nodeType == ir.NodeType.FunctionSetType) {
 			auto fset = cast(ir.FunctionSetType) type;
@@ -204,9 +198,9 @@ void extypeAssignStorageType(ref AssignmentState state, ref ir.Exp exp, ir.Stora
 	}
 
 	if (storage.type == ir.StorageType.Kind.Scope) {
-		rejectBadScopeAssign(state, exp, storage);
+		rejectBadScopeAssign(context, exp, storage);
 		exp = buildCastSmart(storage.base, exp);
-		extypeAssignDispatch(state, exp, storage.base);
+		extypeAssignDispatch(context, exp, storage.base);
 	}
 
 	auto ptr = cast(ir.PointerType) type;
@@ -216,23 +210,23 @@ void extypeAssignStorageType(ref AssignmentState state, ref ir.Exp exp, ir.Stora
 		overrideType = ptr;
 	}
 	ir.Exp dummy = exp;
-	extypeAssignDispatch(state, dummy, storage.base, overrideType);
+	extypeAssignDispatch(context, dummy, storage.base, overrideType);
 	
 	if (canTransparentlyReferToBase(storage)) {
-		extypeAssignDispatch(state, exp, storage.base);
+		extypeAssignDispatch(context, exp, storage.base);
 	}
 }
 
-void extypeAssignTypeReference(ref AssignmentState state, ref ir.Exp exp, ir.TypeReference tr)
+void extypeAssignTypeReference(Context context, ref ir.Exp exp, ir.TypeReference tr)
 {
-	extypeAssign(state, exp, tr.type);
+	extypeAssign(context, exp, tr.type);
 }
 
 /**
  * Handles implicit pointer casts. To void*, immutable(T)* to const(T)*
  * T* to const(T)* and the like.
  */
-void extypeAssignPointerType(ref AssignmentState state, ref ir.Exp exp, ir.PointerType ptr, ir.Type expOverride = null)
+void extypeAssignPointerType(Context context, ref ir.Exp exp, ir.PointerType ptr, ir.Type expOverride = null)
 {
 	// string literals implicitly convert to typeof(string.ptr)
 	auto constant = cast(ir.Constant) exp;
@@ -240,7 +234,7 @@ void extypeAssignPointerType(ref AssignmentState state, ref ir.Exp exp, ir.Point
 		exp = buildAccess(exp.location, exp, "ptr");
 	}
 
-	auto type = expOverride !is null ? expOverride : realType(getExpType(state.lp, exp, state.current));
+	auto type = expOverride !is null ? expOverride : realType(getExpType(context.lp, exp, context.current));
 
 	auto storage = cast(ir.StorageType) type;
 	if (storage !is null) {
@@ -281,9 +275,9 @@ void extypeAssignPointerType(ref AssignmentState state, ref ir.Exp exp, ir.Point
 /**
  * Implicit primitive casts (smaller to larger).
  */
-void extypeAssignPrimitiveType(ref AssignmentState state, ref ir.Exp exp, ir.PrimitiveType lprim)
+void extypeAssignPrimitiveType(Context context, ref ir.Exp exp, ir.PrimitiveType lprim)
 {
-	auto rtype = getExpType(state.lp, exp, state.current);
+	auto rtype = getExpType(context.lp, exp, context.current);
 	auto rprim = cast(ir.PrimitiveType) realType(rtype);
 	if (rprim is null) {
 		throw makeBadImplicitCast(exp, rtype, lprim);
@@ -313,16 +307,16 @@ void extypeAssignPrimitiveType(ref AssignmentState state, ref ir.Exp exp, ir.Pri
 /**
  * Handles converting child classes to parent classes.
  */
-void extypeAssignClass(ref AssignmentState state, ref ir.Exp exp, ir.Class _class)
+void extypeAssignClass(Context context, ref ir.Exp exp, ir.Class _class)
 {
-	auto type = realType(getExpType(state.lp, exp, state.current));
+	auto type = realType(getExpType(context.lp, exp, context.current));
 	assert(type !is null);
 
 	auto rightClass = cast(ir.Class) type;
 	if (rightClass is null) {
 		throw makeBadImplicitCast(exp, type, _class);
 	}
-	state.lp.resolve(rightClass);
+	context.lp.resolve(rightClass);
 
 	/// Check for converting child classes into parent classes.
 	if (_class !is null && rightClass !is null) {
@@ -337,35 +331,35 @@ void extypeAssignClass(ref AssignmentState state, ref ir.Exp exp, ir.Class _clas
 	}
 }
 
-void extypeAssignEnum(ref AssignmentState state, ref ir.Exp exp, ir.Enum e)
+void extypeAssignEnum(Context context, ref ir.Exp exp, ir.Enum e)
 {
-	auto rtype = getExpType(state.lp, exp, state.current);
+	auto rtype = getExpType(context.lp, exp, context.current);
 	if (typesEqual(e, rtype)) {
 		return;
 	}
 
 	// TODO: This might need to be smarter.
-	extypeAssignDispatch(state, exp, e.base);
+	extypeAssignDispatch(context, exp, e.base);
 }
 
 
 /**
  * Handles assigning an overloaded function to a delegate.
  */
-void extypeAssignCallableType(ref AssignmentState state, ref ir.Exp exp, ir.CallableType ctype)
+void extypeAssignCallableType(Context context, ref ir.Exp exp, ir.CallableType ctype)
 {
-	auto rtype = realType(getExpType(state.lp, exp, state.current));
+	auto rtype = realType(getExpType(context.lp, exp, context.current));
 	if (typesEqual(ctype, rtype)) {
 		return;
 	}
 	if (rtype.nodeType == ir.NodeType.FunctionSetType) {
 		auto fset = cast(ir.FunctionSetType) rtype;
-		auto fn = selectFunction(state.lp, fset.set, ctype.params, exp.location);
+		auto fn = selectFunction(context.lp, fset.set, ctype.params, exp.location);
 		auto eRef = buildExpReference(exp.location, fn, fn.name);
 		fset.set.reference = eRef;
 		exp = eRef;
-		replaceExpReferenceIfNeeded(state.lp, state.current, null, exp, eRef);
-		extypeAssignCallableType(state, exp, ctype);
+		replaceExpReferenceIfNeeded(context.lp, context.current, null, exp, eRef);
+		extypeAssignCallableType(context, exp, ctype);
 		return;
 	}
 	throw makeBadImplicitCast(exp, rtype, ctype);
@@ -375,9 +369,9 @@ void extypeAssignCallableType(ref AssignmentState state, ref ir.Exp exp, ir.Call
  * Handles casting arrays of non mutably indirect types with
  * differing storage types.
  */
-void extypeAssignArrayType(ref AssignmentState state, ref ir.Exp exp, ir.ArrayType atype)
+void extypeAssignArrayType(Context context, ref ir.Exp exp, ir.ArrayType atype)
 {
-	auto rtype = realType(getExpType(state.lp, exp, state.current));
+	auto rtype = realType(getExpType(context.lp, exp, context.current));
 	if (typesEqual(atype, rtype)) {
 		return;
 	}
@@ -404,9 +398,9 @@ void extypeAssignArrayType(ref AssignmentState state, ref ir.Exp exp, ir.ArrayTy
 	throw makeBadImplicitCast(exp, rtype, atype);
 }
 
-void extypeAssignAAType(ref AssignmentState state, ref ir.Exp exp, ir.AAType aatype)
+void extypeAssignAAType(Context context, ref ir.Exp exp, ir.AAType aatype)
 {
-	auto rtype = getExpType(state.lp, exp, state.current);
+	auto rtype = getExpType(context.lp, exp, context.current);
 	if (exp.nodeType == ir.NodeType.AssocArray && typesEqual(aatype, rtype)) {
 		return;
 	}
@@ -427,49 +421,49 @@ void extypeAssignAAType(ref AssignmentState state, ref ir.Exp exp, ir.AAType aat
 	throw makeBadImplicitCast(exp, rtype, aatype);
 }
 
-void extypeAssignDispatch(ref AssignmentState state, ref ir.Exp exp, ir.Type type, ir.Type expOverride = null)
+void extypeAssignDispatch(Context context, ref ir.Exp exp, ir.Type type, ir.Type expOverride = null)
 {
 	switch (type.nodeType) {
 	case ir.NodeType.StorageType:
 		auto storage = cast(ir.StorageType) type;
-		extypeAssignStorageType(state, exp, storage);
+		extypeAssignStorageType(context, exp, storage);
 		break;
 	case ir.NodeType.TypeReference:
 		auto tr = cast(ir.TypeReference) type;
-		extypeAssignTypeReference(state, exp, tr);
+		extypeAssignTypeReference(context, exp, tr);
 		break;
 	case ir.NodeType.PointerType:
 		auto ptr = cast(ir.PointerType) type;
-		extypeAssignPointerType(state, exp, ptr, expOverride);
+		extypeAssignPointerType(context, exp, ptr, expOverride);
 		break;
 	case ir.NodeType.PrimitiveType:
 		auto prim = cast(ir.PrimitiveType) type;
-		extypeAssignPrimitiveType(state, exp, prim);
+		extypeAssignPrimitiveType(context, exp, prim);
 		break;
 	case ir.NodeType.Class:
 		auto _class = cast(ir.Class) type;
-		extypeAssignClass(state, exp, _class);
+		extypeAssignClass(context, exp, _class);
 		break;
 	case ir.NodeType.Enum:
 		auto e = cast(ir.Enum) type;
-		extypeAssignEnum(state, exp, e);
+		extypeAssignEnum(context, exp, e);
 		break;
 	case ir.NodeType.FunctionType:
 	case ir.NodeType.DelegateType:
 		auto ctype = cast(ir.CallableType) type;
-		extypeAssignCallableType(state, exp, ctype);
+		extypeAssignCallableType(context, exp, ctype);
 		break;
 	case ir.NodeType.ArrayType:
 		auto atype = cast(ir.ArrayType) type;
-		extypeAssignArrayType(state, exp, atype);
+		extypeAssignArrayType(context, exp, atype);
 		break;
 	case ir.NodeType.AAType:
 		auto aatype = cast(ir.AAType) type;
-		extypeAssignAAType(state, exp, aatype);
+		extypeAssignAAType(context, exp, aatype);
 		break;
 	case ir.NodeType.Struct:
 	case ir.NodeType.Union:
-		auto rtype = getExpType(state.lp, exp, state.current);
+		auto rtype = getExpType(context.lp, exp, context.current);
 		if (typesEqual(type, rtype)) {
 			return;
 		}
@@ -479,25 +473,25 @@ void extypeAssignDispatch(ref AssignmentState state, ref ir.Exp exp, ir.Type typ
 	}
 }
 
-void extypePass(ref AssignmentState state, ref ir.Exp exp, ir.Type type)
+void extypePass(Context context, ref ir.Exp exp, ir.Type type)
 {
-	ensureResolved(state.lp, state.current, type);
+	ensureResolved(context.lp, context.current, type);
 	auto storage = cast(ir.StorageType) type;
 	if (storage !is null && storage.type == ir.StorageType.Kind.Scope) {
 		type = storage.base;
 	}
-	extypeAssign(state, exp, type);
+	extypeAssign(context, exp, type);
 }
 
-void extypeAssign(ref AssignmentState state, ref ir.Exp exp, ir.Type type)
+void extypeAssign(Context context, ref ir.Exp exp, ir.Type type)
 {
-	ensureResolved(state.lp, state.current, type);
-	if (handleIfStructLiteral(state, type, exp)) return;
-	if (handleIfNull(state.lp, state.current, type, exp)) return;
+	ensureResolved(context.lp, context.current, type);
+	if (handleIfStructLiteral(context, type, exp)) return;
+	if (handleIfNull(context, type, exp)) return;
 
-	extypeAssignHandleStorage(state, exp, type);
+	extypeAssignHandleStorage(context, exp, type);
 
-	extypeAssignDispatch(state, exp, type);
+	extypeAssignDispatch(context, exp, type);
 }
 
 /**
@@ -746,8 +740,8 @@ void extypeLeavePostfix(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Po
 				throw makeNotTaggedOut(postfix.arguments[i]);
 			}
 		}
-		auto state = AssignmentState(lp, current, false);
-		extypePass(state, postfix.arguments[i], asFunctionType.params[i]);
+		auto context = new Context(lp, current, false);
+		extypePass(context, postfix.arguments[i], asFunctionType.params[i]);
 	}
 
 	if (thisCall) {
@@ -938,7 +932,7 @@ void rewritePropertyFunctionAssign(LanguagePass lp, ir.Scope current, ref ir.Exp
 /**
  * Handles <type>.<identifier>, like 'int.min' and the like.
  */
-void extypeTypeLookup(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Postfix[] postfixIdents, ir.Type type)
+void extypeTypeLookup(Context context, ref ir.Exp exp, ir.Postfix[] postfixIdents, ir.Type type)
 {
 	if (postfixIdents.length != 1) {
 		throw makeExpected(type, "max or min");
@@ -950,7 +944,7 @@ void extypeTypeLookup(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Post
 
 	auto pointer = cast(ir.PointerType) realType(type);
 	if (pointer !is null) {
-		if (lp.settings.isVersionSet("V_LP64")) {
+		if (context.lp.settings.isVersionSet("V_LP64")) {
 			exp = buildConstantInt(type.location, max ? 8 : 0);
 		} else {
 			exp = buildConstantInt(type.location, max ? 4 : 0);
@@ -1039,7 +1033,8 @@ void extypePostfixIdentifier(LanguagePass lp, ir.Function[] functionStack, ir.Sc
 			break;
 		} else if (currentP.child.nodeType == ir.NodeType.TypeExp) {
 			auto typeExp = cast(ir.TypeExp) currentP.child;
-			extypeTypeLookup(lp, current, exp, postfixIdents, typeExp.type);
+			auto context = new Context(lp, current, false);
+			extypeTypeLookup(context, exp, postfixIdents, typeExp.type);
 			return;
 		} else {
 			// For instance typeid(int).mangledName.
@@ -1110,7 +1105,7 @@ void extypePostfixIdentifier(LanguagePass lp, ir.Function[] functionStack, ir.Sc
 	ir.Type lastType;
 
 	// First do the identExp lookup.
-	// postfix is in an unknown state at this point.
+	// postfix is in an unknown context at this point.
 	{
 		_scope = current;
 		loc = identExp.location;
@@ -1137,7 +1132,8 @@ void extypePostfixIdentifier(LanguagePass lp, ir.Function[] functionStack, ir.Sc
 			assert(lastType !is null);
 			auto prim = cast(ir.PrimitiveType) lastType;
 			if (prim !is null) {
-				extypeTypeLookup(lp, current, exp, postfixIdents, prim);
+				auto context = new Context(lp, current, false);
+				extypeTypeLookup(context, exp, postfixIdents, prim);
 				return;
 			}
 			goto case Scope;
@@ -1220,12 +1216,12 @@ void extypePostfix(LanguagePass lp, ir.Function[] functionStack, ir.Scope curren
  * Stops casting to an overloaded function name, casting from null, and wires
  * up some runtime magic needed for classes.
  */
-void handleCastTo(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Unary unary)
+void handleCastTo(Context context, ref ir.Exp exp, ir.Unary unary)
 {
 	assert(unary.type !is null);
 	assert(unary.value !is null);
 
-	auto type = realType(getExpType(lp, unary.value, current));
+	auto type = realType(getExpType(context.lp, unary.value, context.current));
 	if (type.nodeType == ir.NodeType.FunctionSetType) {
 		auto fset = cast(ir.FunctionSetType) type;
 		throw makeCannotDisambiguate(unary, fset.set.functions);
@@ -1244,7 +1240,7 @@ void handleCastTo(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Unary un
 		return;
 	}
 
-	auto fn = retrieveFunctionFromObject(lp, from.myScope, unary.location, "vrt_handle_cast");
+	auto fn = retrieveFunctionFromObject(context.lp, from.myScope, unary.location, "vrt_handle_cast");
 	assert(fn !is null);
 
 	auto fnref = buildExpReference(unary.location, fn, "vrt_handle_cast");
@@ -1256,7 +1252,7 @@ void handleCastTo(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Unary un
 /**
  * Type new expressions.
  */
-void handleNew(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Unary _unary)
+void handleNew(Context context, ref ir.Exp exp, ir.Unary _unary)
 {
 	assert(_unary.type !is null);
 
@@ -1282,25 +1278,24 @@ void handleNew(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Unary _unar
 	}
 
 	// Needed because of userConstructors.
-	lp.actualize(_class);
+	context.lp.actualize(_class);
 
-	auto fn = selectFunction(lp, current, _class.userConstructors, _unary.argumentList, _unary.location);
+	auto fn = selectFunction(context.lp, context.current, _class.userConstructors, _unary.argumentList, _unary.location);
 
-	lp.resolve(current, fn);
+	context.lp.resolve(context.current, fn);
 
 	for (size_t i = 0; i < _unary.argumentList.length; ++i) {
-		auto state = AssignmentState(lp, current, false);
-		extypeAssign(state, _unary.argumentList[i], fn.type.params[i]);
+		extypeAssign(context, _unary.argumentList[i], fn.type.params[i]);
 	}
 }
 
-void extypeUnary(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Unary _unary)
+void extypeUnary(Context context, ref ir.Exp exp, ir.Unary _unary)
 {
 	switch (_unary.op) with (ir.Unary.Op) {
 	case Cast:
-		return handleCastTo(lp, current, exp, _unary);
+		return handleCastTo(context, exp, _unary);
 	case New:
-		return handleNew(lp, current, exp, _unary);
+		return handleNew(context, exp, _unary);
 	default:
 	}
 }
@@ -1309,7 +1304,7 @@ void extypeUnary(LanguagePass lp, ir.Scope current, ref ir.Exp exp, ir.Unary _un
  * Everyone's favourite: integer promotion! :D!
  * In general, converts to the largest type needed in a binary expression.
  */
-void extypeBinOp(LanguagePass lp, ir.Scope current, ir.BinOp bin, ir.PrimitiveType lprim, ir.PrimitiveType rprim)
+void extypeBinOp(Context context, ir.BinOp bin, ir.PrimitiveType lprim, ir.PrimitiveType rprim)
 {
 	auto leftsz = size(lprim.type);
 	auto rightsz = size(rprim.type);
@@ -1379,13 +1374,13 @@ void extypeBinOp(LanguagePass lp, ir.Scope current, ir.BinOp bin, ir.PrimitiveTy
  * binary of storage types, otherwise forwards to assign or primitive
  * specific functions.
  */
-void extypeBinOp(LanguagePass lp, ir.Scope current, ir.BinOp binop)
+void extypeBinOp(Context context, ir.BinOp binop)
 {
-	auto ltype = realType(getExpType(lp, binop.left, current));
-	auto rtype = realType(getExpType(lp, binop.right, current));
+	auto ltype = realType(getExpType(context.lp, binop.left, context.current));
+	auto rtype = realType(getExpType(context.lp, binop.right, context.current));
 
-	if (handleIfNull(lp, current, rtype, binop.left)) return;
-	if (handleIfNull(lp, current, ltype, binop.right)) return;
+	if (handleIfNull(context, rtype, binop.left)) return;
+	if (handleIfNull(context, ltype, binop.right)) return;
 
 	switch(binop.op) with(ir.BinOp.Op) {
 	case AddAssign, SubAssign, MulAssign, DivAssign, ModAssign, AndAssign,
@@ -1393,13 +1388,13 @@ void extypeBinOp(LanguagePass lp, ir.Scope current, ir.BinOp binop)
 		// TODO this needs to be changed if there is operator overloading
 		auto asPostfix = cast(ir.Postfix)binop.left;
 		if (asPostfix !is null) {
-			auto postfixLeft = getExpType(lp, asPostfix.child, current);
+			auto postfixLeft = getExpType(context.lp, asPostfix.child, context.current);
 			if (postfixLeft !is null &&
 			    postfixLeft.nodeType == ir.NodeType.AAType &&
 			    asPostfix.op == ir.Postfix.Op.Index) {
 				auto aa = cast(ir.AAType)postfixLeft;
 
-				auto valueType = getExpType(lp, binop.right, current);
+				auto valueType = getExpType(context.lp, binop.right, context.current);
 				if(!isImplicitlyConvertable(valueType, aa.value) && !typesEqual(valueType, aa.value)) {
 					throw makeBadImplicitCast(binop, valueType, aa.value);
 				}
@@ -1415,8 +1410,7 @@ void extypeBinOp(LanguagePass lp, ir.Scope current, ir.BinOp binop)
 			throw makeCannotModify(binop, ltype);
 		}
 
-		auto state = AssignmentState(lp, current, false);
-		extypeAssign(state, binop.right, ltype);
+		extypeAssign(context, binop.right, ltype);
 
 		return;
 	}
@@ -1445,7 +1439,7 @@ void extypeBinOp(LanguagePass lp, ir.Scope current, ir.BinOp binop)
 		auto lprim = cast(ir.PrimitiveType) ltype;
 		auto rprim = cast(ir.PrimitiveType) rtype;
 		assert(lprim !is null && rprim !is null);
-		extypeBinOp(lp, current, binop, lprim, rprim);
+		extypeBinOp(context, binop, lprim, rprim);
 	}
 
 	if (ltype.nodeType == ir.NodeType.StorageType || rtype.nodeType == ir.NodeType.StorageType) {
@@ -1479,19 +1473,19 @@ void extypeCat(ir.BinOp bin, ir.ArrayType left, ir.Type right)
 	bin.right = buildCastSmart(left.base, bin.right);
 }
 
-void extypeTernary(ref AssignmentState state, ir.Ternary ternary)
+void extypeTernary(Context context, ir.Ternary ternary)
 {
-	auto baseType = getExpType(state.lp, ternary.ifTrue, state.current);
-	extypeAssign(state, ternary.ifFalse, baseType);
+	auto baseType = getExpType(context.lp, ternary.ifTrue, context.current);
+	extypeAssign(context, ternary.ifFalse, baseType);
 
-	auto condType = getExpType(state.lp, ternary.condition, state.current);
+	auto condType = getExpType(context.lp, ternary.condition, context.current);
 	if (!isBool(condType)) {
 		ternary.condition = buildCastToBool(ternary.condition.location, ternary.condition);
 	}
 }
 
 /// Replace TypeOf with its expression's type, if needed.
-void replaceTypeOfIfNeeded(LanguagePass lp, ir.Scope current, ref ir.Type type)
+void replaceTypeOfIfNeeded(Context context, ref ir.Type type)
 {
 	auto asTypeOf = cast(ir.TypeOf) realType(type);
 	if (asTypeOf is null) {
@@ -1499,18 +1493,18 @@ void replaceTypeOfIfNeeded(LanguagePass lp, ir.Scope current, ref ir.Type type)
 		return;
 	}
 
-	type = copyTypeSmart(asTypeOf.location, getExpType(lp, asTypeOf.exp, current));
+	type = copyTypeSmart(asTypeOf.location, getExpType(context.lp, asTypeOf.exp, context.current));
 }
 
 /**
  * Ensure that a thrown type inherits from Throwable.
  */
-void extypeThrow(LanguagePass lp, ir.Scope current, ir.ThrowStatement t)
+void extypeThrow(Context context, ir.ThrowStatement t)
 {
-	auto throwable = cast(ir.Class) retrieveTypeFromObject(lp, current, t.location, "Throwable");
+	auto throwable = cast(ir.Class) retrieveTypeFromObject(context.lp, context.current, t.location, "Throwable");
 	assert(throwable !is null);
 
-	auto type = getExpType(lp, t.exp, current);
+	auto type = getExpType(context.lp, t.exp, context.current);
 	auto asClass = cast(ir.Class) type;
 	if (asClass is null) {
 		throw makeThrowOnlyThrowable(t.exp, type);
@@ -1558,7 +1552,7 @@ void handleNestedThis(ir.Function fn)
  * Given a nested function fn, add its parameters to the nested
  * struct and insert statements after the nested declaration.
  */
-void handleNestedParams(LanguagePass lp, ir.Scope current, ir.Function fn)
+void handleNestedParams(Context context, ir.Function fn)
 {
 	auto np = fn.nestedVariable;
 	auto ns = fn.nestStruct;
@@ -1578,7 +1572,7 @@ void handleNestedParams(LanguagePass lp, ir.Scope current, ir.Function fn)
 	foreach (param; fn.params) {
 		if (!param.hasBeenNested) {
 			param.hasBeenNested = true;
-			ensureResolved(lp, current, param.type);
+			ensureResolved(context.lp, context.current, param.type);
 			auto var = buildVariableSmart(param.location, param.type, ir.Variable.Storage.Field, param.name);
 			addVarToStructSmart(ns, var);
 
@@ -1599,15 +1593,15 @@ void handleNestedParams(LanguagePass lp, ir.Scope current, ir.Function fn)
 }
 
 /**
- * Ensure that a given switch statement is semantically sound.
+ * Ensure that a given switch contextment is semantically sound.
  * Errors on bad final switches (doesn't cover all enum members, not on an enum at all),
  * and checks for doubled up cases.
  */
-void verifySwitchStatement(LanguagePass lp, ir.Scope current, ir.SwitchStatement ss)
+void verifySwitchStatement(Context context, ir.SwitchStatement ss)
 {
-	auto hashFunction = retrieveFunctionFromObject(lp, current, ss.location, "vrt_hash");
+	auto hashFunction = retrieveFunctionFromObject(context.lp, context.current, ss.location, "vrt_hash");
 
-	auto conditionType = realType(getExpType(lp, ss.condition, current), false, true);
+	auto conditionType = realType(getExpType(context.lp, ss.condition, context.current), false, true);
 	auto originalCondition = ss.condition;
 	if (isArray(conditionType)) {
 		auto l = ss.location;
@@ -1619,7 +1613,7 @@ void verifySwitchStatement(LanguagePass lp, ir.Scope current, ir.SwitchStatement
 		ss.condition = buildCall(ss.condition.location, hashFunction, [ptr, length]);
 		conditionType = buildUint(ss.condition.location);
 	}
-	auto astate = AssignmentState(lp, current, false);
+	auto acontext = new Context(context.lp, context.current, false);
 
 	struct ArrayCase
 	{
@@ -1634,7 +1628,7 @@ void verifySwitchStatement(LanguagePass lp, ir.Scope current, ir.SwitchStatement
 		void replaceWithHashIfNeeded(ref ir.Exp exp) 
 		{
 			if (exp !is null) {
-				auto etype = getExpType(lp, exp, current);
+				auto etype = getExpType(context.lp, exp, context.current);
 				if (isArray(etype)) {
 					uint h;
 					auto constant = cast(ir.Constant) exp;
@@ -1657,7 +1651,7 @@ void verifySwitchStatement(LanguagePass lp, ir.Scope current, ir.SwitchStatement
 							auto constant = cast(ir.Constant) e;
 							if (constant !is null) {
 								if (sz == 0) {
-									sz = size(ss.location, lp, constant.type);
+									sz = size(ss.location, context.lp, constant.type);
 									assert(sz > 0);
 								}
 								switch (sz) {
@@ -1674,13 +1668,13 @@ void verifySwitchStatement(LanguagePass lp, ir.Scope current, ir.SwitchStatement
 							if (cexp !is null) {
 								assert(cexp.op == ir.Unary.Op.Cast);
 								assert(sz == 0);
-								sz = size(ss.location, lp, cexp.type);
+								sz = size(ss.location, context.lp, cexp.type);
 								assert(sz == 8);
 								addExp(cexp.value);
 								return;
 							}
 
-							auto type = getExpType(lp, exp, current);
+							auto type = getExpType(context.lp, exp, context.current);
 							throw makeSwitchBadType(ss, type);
 						}
 						foreach (e; alit.values) {
@@ -1718,14 +1712,14 @@ void verifySwitchStatement(LanguagePass lp, ir.Scope current, ir.SwitchStatement
 		}
 		if (_case.firstExp !is null) {
 			replaceWithHashIfNeeded(_case.firstExp);
-			extypeAssign(astate, _case.firstExp, conditionType);
+			extypeAssign(acontext, _case.firstExp, conditionType);
 		}
 		if (_case.secondExp !is null) {
 			replaceWithHashIfNeeded(_case.secondExp);
-			extypeAssign(astate, _case.secondExp, conditionType);
+			extypeAssign(acontext, _case.secondExp, conditionType);
 		}
 		foreach (ref exp; _case.exps) {
-			extypeAssign(astate, exp, conditionType);
+			extypeAssign(acontext, exp, conditionType);
 		}
 	}
 
@@ -1800,8 +1794,8 @@ public:
 		assert(ua !is null);
 
 		foreach (i, ref arg; a.arguments) {
-			auto state = AssignmentState(lp, current, false);
-			extypeAssign(state, a.arguments[i], ua.fields[i].type);
+			auto context = new Context(lp, current, false);
+			extypeAssign(context, a.arguments[i], ua.fields[i].type);
 			acceptExp(a.arguments[i], this);
 		}
 	}
@@ -1865,8 +1859,8 @@ public:
 			}
 		}
 
-		auto state = AssignmentState(lp, current, false);
-		extypeAssign(state, ed.assign, ed.type);
+		auto context = new Context(lp, current, false);
+		extypeAssign(context, ed.assign, ed.type);
 		replaceStorageIfNeeded(ed.type);
 		accept(ed.type, this);
 
@@ -1939,6 +1933,7 @@ public:
 
 	override Status enter(ir.Variable v)
 	{
+		auto context = new Context(lp, current, true);
 		// This has to be done this way, because the order in
 		// which the calls in this and the visiting functions
 		// are exectuted matters.
@@ -1946,8 +1941,7 @@ public:
 			v.hasBeenDeclared = true;
 			lp.resolve(current, v);
 			if (v.assign !is null) {
-				auto state = AssignmentState(lp, current, true);
-				rejectBadScopeAssign(state, v.assign, v.type);
+				rejectBadScopeAssign(context, v.assign, v.type);
 			}
 			return ContinueParent;
 		}
@@ -1965,12 +1959,11 @@ public:
 			}
 		}
 
-		replaceTypeOfIfNeeded(lp, current, v.type);
+		replaceTypeOfIfNeeded(context, v.type);
 
 		if (v.assign !is null) {
 			acceptExp(v.assign, this);
-			auto state = AssignmentState(lp, current, true);
-			extypeAssign(state, v.assign, v.type);
+			extypeAssign(context, v.assign, v.type);
 		}
 
 		replaceStorageIfNeeded(v.type);
@@ -1986,7 +1979,8 @@ public:
 			addVarToStructSmart(fn.nestStruct, cvar);
 		}
 		handleNestedThis(fn);
-		handleNestedParams(lp, current, fn);
+		auto context = new Context(lp, current, false);
+		handleNestedParams(context, fn);
 		lp.resolve(current, fn);
 		super.enter(fn);
 		return Continue;
@@ -2003,13 +1997,13 @@ public:
 	{
 		auto fn = getParentFunction(current);
 		if (fn is null) {
-			throw panic(ret, "return statement outside of function.");
+			throw panic(ret, "return contextment outside of function.");
 		}
 
 		if (ret.exp !is null) {
 			acceptExp(ret.exp, this);
-			auto state = AssignmentState(lp, current, false);
-			extypeAssign(state, ret.exp, fn.type.ret);
+			auto context = new Context(lp, current, false);
+			extypeAssign(context, ret.exp, fn.type.ret);
 		}
 
 		return ContinueParent;
@@ -2050,8 +2044,8 @@ public:
 		foreach (ref increment; fs.increments) {
 			acceptExp(increment, this);
 		}
-		foreach (statement; fs.block.statements) {
-			accept(statement, this);
+		foreach (contextment; fs.block.statements) {
+			accept(contextment, this);
 		}
 		super.leave(fs.block);
 
@@ -2084,13 +2078,15 @@ public:
 
 	override Status enter(ir.SwitchStatement ss)
 	{
-		verifySwitchStatement(lp, current, ss);
+		auto context = new Context(lp, current, false);
+		verifySwitchStatement(context, ss);
 		return Continue;
 	}
 
 	override Status leave(ir.ThrowStatement t)
 	{
-		extypeThrow(lp, current, t);
+		auto context = new Context(lp, current, false);
+		extypeThrow(context, t);
 		return Continue;
 	}
 
@@ -2120,13 +2116,15 @@ public:
 
 	override Status enter(ir.FunctionType ftype)
 	{
-		replaceTypeOfIfNeeded(lp, current, ftype.ret);
+		auto context = new Context(lp, current, false);
+		replaceTypeOfIfNeeded(context, ftype.ret);
 		return Continue;
 	}
 
 	override Status enter(ir.DelegateType dtype)
 	{
-		replaceTypeOfIfNeeded(lp, current, dtype.ret);
+		auto context = new Context(lp, current, false);
+		replaceTypeOfIfNeeded(context, dtype.ret);
 		return Continue;
 	}
 	enum Kind
@@ -2142,6 +2140,7 @@ public:
 	}
 	override Status enter(ref ir.Exp exp, ir.Typeid _typeid)
 	{
+		auto context = new Context(lp, current, false);
 		if (_typeid.ident.length > 0) {
 			auto store = lookup(lp, current, _typeid.location, _typeid.ident);
 			if (store is null) {
@@ -2171,7 +2170,7 @@ public:
 			_typeid.exp = null;
 		}
 		ensureResolved(lp, current, _typeid.type);
-		replaceTypeOfIfNeeded(lp, current, _typeid.type);
+		replaceTypeOfIfNeeded(context, _typeid.type);
 		return Continue;
 	}
 
@@ -2189,7 +2188,8 @@ public:
 		rewritePropertyFunctionAssign(lp, current, e, bin);
 		// If rewritten.
 		if (e is bin) {
-			extypeBinOp(lp, current, bin);
+			auto context = new Context(lp, current, false);
+			extypeBinOp(context, bin);
 		}
 		return Continue;
 	}
@@ -2209,18 +2209,19 @@ public:
 
 	override Status leave(ref ir.Exp exp, ir.Unary _unary)
 	{
+		auto context = new Context(lp, current, false);
 		if (_unary.type !is null) {
 			ensureResolved(lp, current, _unary.type);
-			replaceTypeOfIfNeeded(lp, current, _unary.type);
+			replaceTypeOfIfNeeded(context, _unary.type);
 		}
-		extypeUnary(lp, current, exp, _unary);
+		extypeUnary(context, exp, _unary);
 		return Continue;
 	}
 
 	override Status leave(ref ir.Exp exp, ir.Ternary ternary)
 	{
-		auto state = AssignmentState(lp, current, false);
-		extypeTernary(state, ternary);
+		auto context = new Context(lp, current, false);
+		extypeTernary(context, ternary);
 		return Continue;
 	}
 
